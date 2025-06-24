@@ -45,6 +45,7 @@ export default function App() {
   const audioEl = useRef<HTMLAudioElement>(null);
   const audioCtx = useRef<AudioContext|null>(null);
   const analyser = useRef<AnalyserNode|null>(null);
+  const gameOverAudio = useRef<HTMLAudioElement>(null);
 
   // State
   const [grid, setGrid] = useState<number[][]>(emptyGrid());
@@ -209,6 +210,27 @@ export default function App() {
   const hardDrop = () => setPiece(p => { let np = { ...p }; while (!collides(grid, { ...np, y: np.y + 1 })) np.y++; return np; });
   const handlePause = () => setPaused(p => !p);
 
+  // Quand la partie est perdue, joue le son game over et coupe la musique de fond
+  useEffect(() => {
+    if (over) {
+      if (gameOverAudio.current) {
+        gameOverAudio.current.currentTime = 0;
+        gameOverAudio.current.play().catch(()=>{});
+      }
+      if (audioEl.current) {
+        audioEl.current.pause();
+      }
+    }
+  }, [over]);
+
+  // Relance la musique de fond quand une nouvelle partie commence
+  useEffect(() => {
+    if (started && !over && audioEl.current) {
+      audioEl.current.currentTime = 0;
+      audioEl.current.play().catch(()=>{});
+    }
+  }, [started, over]);
+
   // JSX
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen bg-black text-white">
@@ -320,6 +342,31 @@ export default function App() {
               style={{boxShadow: '0 4px 16px #0004'}}
             >EXIT</button>
           </div>
+        </div>
+      )}
+      {/* Ecran GAME OVER */}
+      {over && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80">
+          <div className="flex flex-col items-center">
+            <div className="text-6xl md:text-8xl font-extrabold text-red-600 mb-8" style={{fontFamily:'monospace', letterSpacing:'0.1em', textShadow:'0 0 16px #000, 0 2px 0 #fff'}}>
+              GAME OVER
+            </div>
+            <div className="text-2xl md:text-3xl font-bold text-white mb-6" style={{fontFamily:'monospace'}}>PLAY AGAIN</div>
+            <div className="flex flex-row gap-8">
+              <button
+                onClick={()=>{ resetGame(); setPaused(false); }}
+                className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white text-xl font-bold rounded-lg shadow-lg border-2 border-white"
+                style={{fontFamily:'monospace', textShadow:'0 2px 0 #000'}}
+              >YES</button>
+              <button
+                onClick={()=>{ resetGame(); setPaused(false); }}
+                className="px-8 py-3 bg-gray-600 hover:bg-gray-700 text-white text-xl font-bold rounded-lg shadow-lg border-2 border-white"
+                style={{fontFamily:'monospace', textShadow:'0 2px 0 #000'}}
+              >NO</button>
+            </div>
+          </div>
+          {/* Audio game over */}
+          <audio ref={gameOverAudio} src="/gameover.mp3" preload="auto" />
         </div>
       )}
     </div>
