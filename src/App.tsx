@@ -35,6 +35,9 @@ const randomPiece = (): Piece => {
 };
 const rotate = (m: number[][]) => m[0].map((_,i)=>m.map(r=>r[i]).reverse());
 
+// Ajout utilitaire pour détecter mobile
+const isMobile = () => /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+
 export default function App() {
   // Refs
   const gameCanvas = useRef<HTMLCanvasElement>(null);
@@ -52,6 +55,8 @@ export default function App() {
   const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
   const [countdown, setCountdown] = useState<number|null>(null);
+  const [paused, setPaused] = useState(false);
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
 
   // Initialize AudioContext and Analyser once
   useEffect(() => {
@@ -65,6 +70,10 @@ export default function App() {
       audioCtx.current = ctx;
       analyser.current = anl;
     }
+  }, []);
+
+  useEffect(() => {
+    setIsMobileDevice(isMobile());
   }, []);
 
   // Visualize audio when game started
@@ -115,7 +124,7 @@ export default function App() {
 
   // Gravity loop
   useEffect(()=>{
-    if(!started||over) return;
+    if(!started || over || paused) return;
     const speed = Math.max(100, START_SPEED-level*20);
     const id = setInterval(()=>{
       setPiece(p=>{
@@ -135,7 +144,7 @@ export default function App() {
       });
     }, speed);
     return ()=>clearInterval(id);
-  }, [grid, level, started, over, nextPiece]);
+  }, [grid, level, started, over, nextPiece, paused]);
 
   // Controls
   useEffect(()=>{
@@ -155,6 +164,18 @@ export default function App() {
     window.addEventListener('keydown', onKey);
     return ()=>window.removeEventListener('keydown', onKey);
   }, [started, over, grid]);
+
+  // Ajout gestion pause clavier
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!started || over) return;
+      if (e.key === 'p') { setPaused(p => !p); return; }
+      if (paused) return;
+      // ... existing code ...
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [started, over, grid, paused]);
 
   // Drawing
   useEffect(()=>{
@@ -180,15 +201,43 @@ export default function App() {
     const id=setInterval(()=>{ t--; if(t===0){ clearInterval(id); setCountdown(null); setStarted(true); audioCtx.current?.resume().then(()=>{ audioEl.current?.play().catch(()=>{}); }); } else setCountdown(t); },1000);
   };
 
+  // Fonctions pour les boutons tactiles
+  const moveLeft = () => setPiece(p => { let np = { ...p, x: p.x - 1 }; return collides(grid, np) ? p : np; });
+  const moveRight = () => setPiece(p => { let np = { ...p, x: p.x + 1 }; return collides(grid, np) ? p : np; });
+  const moveDown = () => setPiece(p => { let np = { ...p, y: p.y + 1 }; return collides(grid, np) ? p : np; });
+  const rotatePiece = () => setPiece(p => { let np = { ...p, shape: rotate(p.shape) }; return collides(grid, np) ? p : np; });
+  const hardDrop = () => setPiece(p => { let np = { ...p }; while (!collides(grid, { ...np, y: np.y + 1 })) np.y++; return np; });
+  const handlePause = () => setPaused(p => !p);
+
   // JSX
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen bg-black text-white">
       {/* Playlist & Visualization */}
-      <div className="absolute top-4 left-4 flex flex-col items-start">
+      <div className="absolute top-4 left-4 flex flex-col items-start z-10">
         <span className="text-sm">Now Playing: Tetris 99 - Main Theme.mp3</span>
         <canvas ref={audioCanvas} width={200} height={50} className="border border-gray-600 mb-2" />
         <audio ref={audioEl} src="/t.mp3" preload="auto" loop />
       </div>
+      {/* Bouton Pause (toujours visible en haut à droite) */}
+      <button
+        onClick={handlePause}
+        className="absolute top-4 right-4 z-20 bg-gray-800 hover:bg-cyan-500 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg border border-cyan-400 text-2xl"
+        aria-label="Pause"
+      >
+        {paused ? '▶️' : '⏸️'}
+      </button>
+      {/* Explications clavier (PC uniquement) */}
+      {!isMobileDevice && (
+        <div className="absolute top-4 right-20 bg-gray-900 bg-opacity-80 rounded-lg p-4 text-xs z-10 border border-cyan-400 shadow-lg">
+          <div className="font-bold mb-1">Contrôles clavier :</div>
+          <div>←/→ : Déplacer</div>
+          <div>↓ : Descendre</div>
+          <div>Espace : Rotation</div>
+          <div>↑ : Hard Drop</div>
+          <div>P : Pause</div>
+          <div>R : Reset</div>
+        </div>
+      )}
       {/* Start / Countdown */}
       {!started && countdown===null && (
         <div className="space-y-4">
@@ -206,6 +255,72 @@ export default function App() {
           <div className="mt-4">Score: {score} Level: {level}</div>
           {over && <div className="text-red-500 mt-2">GAME OVER - Press R</div>}
         </>
+      )}
+      {/* Boutons tactiles (mobile uniquement) */}
+      {isMobileDevice && started && !over && (
+        <div className="fixed left-2 bottom-4 z-30 flex flex-col items-center select-none">
+          {/* Manette (flèches + rotation) */}
+          <div className="flex flex-row items-end mb-2">
+            <button
+              onTouchStart={moveLeft}
+              className="w-14 h-14 bg-gray-800 rounded-full flex items-center justify-center mx-1 text-3xl border-2 border-cyan-400 shadow-lg active:bg-cyan-500"
+              aria-label="Gauche"
+            >
+              ←
+            </button>
+            <button
+              onTouchStart={moveDown}
+              className="w-14 h-14 bg-gray-800 rounded-full flex items-center justify-center mx-1 text-3xl border-2 border-cyan-400 shadow-lg active:bg-cyan-500"
+              aria-label="Descendre"
+            >
+              ↓
+            </button>
+            <button
+              onTouchStart={moveRight}
+              className="w-14 h-14 bg-gray-800 rounded-full flex items-center justify-center mx-1 text-3xl border-2 border-cyan-400 shadow-lg active:bg-cyan-500"
+              aria-label="Droite"
+            >
+              →
+            </button>
+            <button
+              onTouchStart={rotatePiece}
+              className="w-14 h-14 bg-cyan-500 rounded-full flex items-center justify-center mx-1 text-3xl border-2 border-white shadow-lg active:bg-cyan-700"
+              aria-label="Rotation"
+            >
+              ⟳
+            </button>
+          </div>
+          <button
+            onTouchStart={hardDrop}
+            className="w-20 h-10 bg-gray-700 rounded-lg flex items-center justify-center text-lg border-2 border-cyan-400 shadow active:bg-cyan-500 mt-1"
+            aria-label="Hard Drop"
+          >
+            Hard Drop
+          </button>
+        </div>
+      )}
+      {/* Ecran de pause */}
+      {paused && started && !over && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+          <div className="rounded-3xl shadow-2xl p-8 pt-4 flex flex-col items-center" style={{background: 'linear-gradient(180deg, #ffe066 80%, #ffb347 100%)', minWidth: 320, minHeight: 380, border: '4px solid #fff'}}>
+            <div className="mb-6 mt-2 text-4xl font-extrabold text-blue-700 tracking-widest drop-shadow-lg">PAUSED</div>
+            <button
+              onClick={()=>setPaused(false)}
+              className="w-48 h-14 mb-4 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-2xl font-bold shadow-lg border-4 border-white transition-all duration-150"
+              style={{boxShadow: '0 4px 16px #0004'}}
+            >RESUME</button>
+            <button
+              onClick={()=>{ resetGame(); setPaused(false); setStarted(true); }}
+              className="w-48 h-14 mb-4 rounded-full bg-orange-400 hover:bg-orange-500 text-white text-2xl font-bold shadow-lg border-4 border-white transition-all duration-150"
+              style={{boxShadow: '0 4px 16px #0004'}}
+            >REPLAY</button>
+            <button
+              onClick={()=>resetGame()}
+              className="w-48 h-14 rounded-full bg-gray-400 hover:bg-gray-500 text-white text-2xl font-bold shadow-lg border-4 border-white transition-all duration-150"
+              style={{boxShadow: '0 4px 16px #0004'}}
+            >EXIT</button>
+          </div>
+        </div>
       )}
     </div>
   );
