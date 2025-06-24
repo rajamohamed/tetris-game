@@ -210,13 +210,26 @@ export default function App() {
   const hardDrop = () => setPiece(p => { let np = { ...p }; while (!collides(grid, { ...np, y: np.y + 1 })) np.y++; return np; });
   const handlePause = () => setPaused(p => !p);
 
-  // Quand la partie est perdue, joue le son game over
+  // Quand la partie est perdue, joue le son game over et coupe la musique de fond
   useEffect(() => {
-    if (over && gameOverAudio.current) {
-      gameOverAudio.current.currentTime = 0;
-      gameOverAudio.current.play().catch(()=>{});
+    if (over) {
+      if (gameOverAudio.current) {
+        gameOverAudio.current.currentTime = 0;
+        gameOverAudio.current.play().catch(()=>{});
+      }
+      if (audioEl.current) {
+        audioEl.current.pause();
+      }
     }
   }, [over]);
+
+  // Relance la musique de fond quand une nouvelle partie commence
+  useEffect(() => {
+    if (started && !over && audioEl.current) {
+      audioEl.current.currentTime = 0;
+      audioEl.current.play().catch(()=>{});
+    }
+  }, [started, over]);
 
   // JSX
   return (
@@ -341,7 +354,7 @@ export default function App() {
             <div className="text-2xl md:text-3xl font-bold text-white mb-6" style={{fontFamily:'monospace'}}>PLAY AGAIN</div>
             <div className="flex flex-row gap-8">
               <button
-                onClick={()=>{ resetGame(); setStarted(true); setPaused(false); }}
+                onClick={()=>{ resetGame(); setPaused(false); }}
                 className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white text-xl font-bold rounded-lg shadow-lg border-2 border-white"
                 style={{fontFamily:'monospace', textShadow:'0 2px 0 #000'}}
               >YES</button>
