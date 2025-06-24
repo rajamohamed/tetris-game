@@ -233,7 +233,9 @@ export default function App() {
 
   // JSX
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen bg-black text-white">
+    <div className={
+      `relative flex flex-col items-center justify-center min-h-screen bg-black text-white ${isMobileDevice && started && !over ? 'pb-40' : ''}`
+    }>
       {/* Playlist & Visualization */}
       <div className="absolute top-4 left-4 flex flex-col items-start z-10">
         <span className="text-sm">Now Playing: Tetris 99 - Main Theme.mp3</span>
@@ -270,43 +272,48 @@ export default function App() {
       {countdown!==null && (
         <div className="text-6xl font-bold">{countdown===0?'GO!':countdown}</div>
       )}
+      {/* Score/Level en haut à droite sous le bouton pause */}
+      {started && !over && (
+        <div className="absolute top-20 right-4 z-20 bg-black bg-opacity-60 rounded-lg px-4 py-2 text-white text-base font-bold shadow-md flex flex-col items-end">
+          <span>Score: {score}</span>
+          <span>Level: {level}</span>
+        </div>
+      )}
       {/* Game Canvas */}
       {started && (
         <>
           <canvas ref={gameCanvas} width={COLS*BLOCK+150} height={ROWS*BLOCK} className="shadow-2xl" />
-          <div className="mt-4">Score: {score} Level: {level}</div>
-          {over && <div className="text-red-500 mt-2">GAME OVER - Press R</div>}
         </>
       )}
       {/* Boutons tactiles (mobile uniquement) */}
       {isMobileDevice && started && !over && (
-        <div className="fixed left-2 bottom-4 z-30 flex flex-col items-center select-none">
+        <div className="fixed left-0 right-0 bottom-4 z-30 flex flex-col items-center select-none w-full">
           {/* Manette (flèches + rotation) */}
-          <div className="flex flex-row items-end mb-2">
+          <div className="flex flex-row items-end justify-center w-full mb-2 gap-2">
             <button
               onTouchStart={moveLeft}
-              className="w-14 h-14 bg-gray-800 rounded-full flex items-center justify-center mx-1 text-3xl border-2 border-cyan-400 shadow-lg active:bg-cyan-500"
+              className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-800 rounded-full flex items-center justify-center text-2xl sm:text-3xl border-2 border-cyan-400 shadow-lg active:bg-cyan-500"
               aria-label="Gauche"
             >
               ←
             </button>
             <button
               onTouchStart={moveDown}
-              className="w-14 h-14 bg-gray-800 rounded-full flex items-center justify-center mx-1 text-3xl border-2 border-cyan-400 shadow-lg active:bg-cyan-500"
+              className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-800 rounded-full flex items-center justify-center text-2xl sm:text-3xl border-2 border-cyan-400 shadow-lg active:bg-cyan-500"
               aria-label="Descendre"
             >
               ↓
             </button>
             <button
               onTouchStart={moveRight}
-              className="w-14 h-14 bg-gray-800 rounded-full flex items-center justify-center mx-1 text-3xl border-2 border-cyan-400 shadow-lg active:bg-cyan-500"
+              className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-800 rounded-full flex items-center justify-center text-2xl sm:text-3xl border-2 border-cyan-400 shadow-lg active:bg-cyan-500"
               aria-label="Droite"
             >
               →
             </button>
             <button
               onTouchStart={rotatePiece}
-              className="w-14 h-14 bg-cyan-500 rounded-full flex items-center justify-center mx-1 text-3xl border-2 border-white shadow-lg active:bg-cyan-700"
+              className="w-12 h-12 sm:w-14 sm:h-14 bg-cyan-500 rounded-full flex items-center justify-center text-2xl sm:text-3xl border-2 border-white shadow-lg active:bg-cyan-700"
               aria-label="Rotation"
             >
               ⟳
@@ -314,8 +321,9 @@ export default function App() {
           </div>
           <button
             onTouchStart={hardDrop}
-            className="w-20 h-10 bg-gray-700 rounded-lg flex items-center justify-center text-lg border-2 border-cyan-400 shadow active:bg-cyan-500 mt-1"
+            className="w-32 h-10 bg-gray-700 rounded-lg flex items-center justify-center text-base sm:text-lg border-2 border-cyan-400 shadow active:bg-cyan-500 mt-1 font-bold text-white"
             aria-label="Hard Drop"
+            style={{letterSpacing:'0.05em'}}
           >
             Hard Drop
           </button>
