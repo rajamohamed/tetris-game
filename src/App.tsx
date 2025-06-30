@@ -157,9 +157,15 @@ export default function App() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [paused, setPaused] = useState(false);
   const [isMobileDevice, setIsMobileDevice] = useState(false);
+  const [orientation, setOrientation] = useState<'portrait'|'landscape'>('portrait');
+  const [showInfo, setShowInfo] = useState(false);
+  const [wasPaused, setWasPaused] = useState(false);
 
   // Piece bag
   const pieceBag = useRef<PieceBag>(new PieceBag());
+
+  // Responsive block size
+  const [blockSize, setBlockSize] = useState(BLOCK);
 
   // Initialize game
   useEffect(() => {
@@ -169,6 +175,33 @@ export default function App() {
     const initialPieces = [pieceBag.current.next(), pieceBag.current.next(), pieceBag.current.next()];
     setNextPieces(initialPieces);
     setPiece(initialPieces[0]);
+  }, []);
+
+  useEffect(() => {
+    function handleResize() {
+      const isLandscape = window.innerWidth > window.innerHeight;
+      setOrientation(isLandscape ? 'landscape' : 'portrait');
+      let maxBlock;
+      if (isLandscape) {
+        // Plateau + 2 panneaux latéraux (4 colonnes de chaque côté)
+        const maxH = Math.floor((window.innerHeight - 48) / ROWS);
+        const maxW = Math.floor((window.innerWidth - 64) / (COLS + 8));
+        maxBlock = Math.max(12, Math.min(BLOCK, Math.min(maxH, maxW)));
+      } else {
+        // Plateau + panneaux au-dessus
+        const maxW = Math.floor((window.innerWidth - 32) / COLS);
+        const maxH = Math.floor((window.innerHeight - 200) / ROWS);
+        maxBlock = Math.max(12, Math.min(BLOCK, Math.min(maxW, maxH)));
+      }
+      setBlockSize(maxBlock);
+    }
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
   }, []);
 
   // Lock piece and spawn new one
@@ -430,15 +463,15 @@ export default function App() {
         if (cell > 0) {
           const color = COLORS[cell - 1];
           ctx.fillStyle = color;
-          ctx.fillRect(x * BLOCK, y * BLOCK, BLOCK, BLOCK);
+          ctx.fillRect(x * blockSize, y * blockSize, blockSize, blockSize);
           
           // Add highlight
           ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-          ctx.fillRect(x * BLOCK, y * BLOCK, BLOCK, 2);
-          ctx.fillRect(x * BLOCK, y * BLOCK, 2, BLOCK);
+          ctx.fillRect(x * blockSize, y * blockSize, blockSize, 2);
+          ctx.fillRect(x * blockSize, y * blockSize, 2, blockSize);
         }
         ctx.strokeStyle = '#333';
-        ctx.strokeRect(x * BLOCK, y * BLOCK, BLOCK, BLOCK);
+        ctx.strokeRect(x * blockSize, y * blockSize, blockSize, blockSize);
       });
     });
     
@@ -449,9 +482,9 @@ export default function App() {
         row.forEach((cell, dx) => {
           if (cell) {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-            ctx.fillRect((ghost.x + dx) * BLOCK, (ghost.y + dy) * BLOCK, BLOCK, BLOCK);
+            ctx.fillRect((ghost.x + dx) * blockSize, (ghost.y + dy) * blockSize, blockSize, blockSize);
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.strokeRect((ghost.x + dx) * BLOCK, (ghost.y + dy) * BLOCK, BLOCK, BLOCK);
+            ctx.strokeRect((ghost.x + dx) * blockSize, (ghost.y + dy) * blockSize, blockSize, blockSize);
           }
         });
       });
@@ -464,15 +497,15 @@ export default function App() {
           if (cell) {
             const color = COLORS[piece.colorIdx];
             ctx.fillStyle = color;
-            ctx.fillRect((piece.x + dx) * BLOCK, (piece.y + dy) * BLOCK, BLOCK, BLOCK);
+            ctx.fillRect((piece.x + dx) * blockSize, (piece.y + dy) * blockSize, blockSize, blockSize);
             
             // Add highlight
             ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.fillRect((piece.x + dx) * BLOCK, (piece.y + dy) * BLOCK, BLOCK, 2);
-            ctx.fillRect((piece.x + dx) * BLOCK, (piece.y + dy) * BLOCK, 2, BLOCK);
+            ctx.fillRect((piece.x + dx) * blockSize, (piece.y + dy) * blockSize, blockSize, 2);
+            ctx.fillRect((piece.x + dx) * blockSize, (piece.y + dy) * blockSize, 2, blockSize);
             
             ctx.strokeStyle = '#000';
-            ctx.strokeRect((piece.x + dx) * BLOCK, (piece.y + dy) * BLOCK, BLOCK, BLOCK);
+            ctx.strokeRect((piece.x + dx) * blockSize, (piece.y + dy) * blockSize, blockSize, blockSize);
           }
         });
       });
@@ -480,14 +513,15 @@ export default function App() {
     
     // Draw next pieces
     nextPieces.forEach((nextPiece, index) => {
-      const yOffset = index * 80;
+      const x0 = orientation === 'landscape' ? (COLS + 1) * blockSize : 0;
+      const y0 = orientation === 'landscape' ? index * 4 * blockSize : -((nextPieces.length - index) * 4 * blockSize);
       nextPiece.shape.forEach((row, dy) => {
         row.forEach((cell, dx) => {
           if (cell) {
             ctx.fillStyle = COLORS[nextPiece.colorIdx];
-            ctx.fillRect(PREVIEW_X + dx * BLOCK, yOffset + dy * BLOCK, BLOCK, BLOCK);
+            ctx.fillRect(x0 + dx * blockSize, y0 + dy * blockSize, blockSize, blockSize);
             ctx.strokeStyle = '#333';
-            ctx.strokeRect(PREVIEW_X + dx * BLOCK, yOffset + dy * BLOCK, BLOCK, BLOCK);
+            ctx.strokeRect(x0 + dx * blockSize, y0 + dy * blockSize, blockSize, blockSize);
           }
         });
       });
@@ -495,19 +529,20 @@ export default function App() {
     
     // Draw hold piece
     if (holdPiece) {
-      const holdY = 100;
+      const x0 = orientation === 'landscape' ? -4 * blockSize : 0;
+      const y0 = orientation === 'landscape' ? 0 : -4 * blockSize;
       holdPiece.shape.forEach((row, dy) => {
         row.forEach((cell, dx) => {
           if (cell) {
             ctx.fillStyle = canHold ? COLORS[holdPiece.colorIdx] : '#666';
-            ctx.fillRect(HOLD_X + dx * BLOCK, holdY + dy * BLOCK, BLOCK, BLOCK);
+            ctx.fillRect(x0 + dx * blockSize, y0 + dy * blockSize, blockSize, blockSize);
             ctx.strokeStyle = '#333';
-            ctx.strokeRect(HOLD_X + dx * BLOCK, holdY + dy * BLOCK, BLOCK, BLOCK);
+            ctx.strokeRect(x0 + dx * blockSize, y0 + dy * blockSize, blockSize, blockSize);
           }
         });
       });
     }
-  }, [grid, piece, nextPieces, holdPiece, canHold]);
+  }, [grid, piece, nextPieces, holdPiece, canHold, blockSize, orientation]);
 
   // Reset & Start functions
   const resetGame = () => {
@@ -608,8 +643,26 @@ export default function App() {
     }
   }, [started, over]);
 
+  // Ouvre la modale info et met en pause si besoin
+  const openInfo = () => {
+    if (started && !paused && !over) {
+      setWasPaused(false);
+      setPaused(true);
+    } else {
+      setWasPaused(true);
+    }
+    setShowInfo(true);
+  };
+  // Ferme la modale info et reprend la partie si besoin
+  const closeInfo = () => {
+    setShowInfo(false);
+    if (!wasPaused && started && paused && !over) {
+      setPaused(false);
+    }
+  };
+
   return (
-    <div className={`relative flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white ${isMobileDevice && started && !over ? 'pb-20' : ''}`}>
+    <div className="min-h-screen w-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white" style={{overflowX: 'hidden'}}>
       {/* Audio Visualization */}
       <div className="absolute top-4 left-4 flex flex-col items-start z-10">
         <span className="text-sm text-cyan-400 font-mono">Now Playing: Tetris 99 - Main Theme.mp3</span>
@@ -690,21 +743,20 @@ export default function App() {
 
       {/* Game Canvas */}
       {started && (
-        <div className="relative">
+        <div className="relative flex justify-center w-full" style={{maxWidth: `${(COLS + 4) * blockSize}px`, margin: '0 auto'}}>
           <canvas 
             ref={gameCanvas} 
-            width={COLS * BLOCK + 200} 
-            height={ROWS * BLOCK} 
+            width={COLS * blockSize + 4 * blockSize} 
+            height={ROWS * blockSize} 
+            style={{maxWidth: '100vw', width: '100%', height: 'auto', display: 'block', margin: '0 auto', background: '#0a0a0a'}}
             className="shadow-2xl border-2 border-cyan-400 rounded-lg"
           />
-          
           {/* Hold Label */}
-          <div className="absolute top-0 left-0" style={{ left: `${HOLD_X + BLOCK}px`, width: `${BLOCK * 4}px`, textAlign: 'center' }}>
+          <div className="absolute top-0 left-0" style={{ left: `0px`, width: `${blockSize * 4}px`, textAlign: 'center' }}>
             <div className="text-sm font-bold text-cyan-400 mb-2">HOLD</div>
           </div>
-          
           {/* Next Label */}
-          <div className="absolute top-0 right-0" style={{ right: '10px', width: `${BLOCK * 4}px`, textAlign: 'center' }}>
+          <div className="absolute top-0 right-0" style={{ right: `0px`, width: `${blockSize * 4}px`, textAlign: 'center' }}>
             <div className="text-sm font-bold text-cyan-400 mb-2">NEXT</div>
           </div>
         </div>
@@ -780,6 +832,46 @@ export default function App() {
             </div>
           </div>
           <audio ref={gameOverAudio} src="/gameover.mp3" preload="auto" />
+        </div>
+      )}
+
+      {/* Copyright + Info */}
+      <div className="fixed bottom-2 left-0 w-full text-center text-xs text-cyan-400 opacity-80 z-50 flex items-center justify-center gap-2">
+        <span>© Raja Mohamed 2025</span>
+        <button
+          aria-label="Infos"
+          onClick={openInfo}
+          style={{background: 'none', border: 'none', color: '#22d3ee', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer', opacity: 0.9, padding: 0, marginLeft: 4}}
+        >
+          i
+        </button>
+      </div>
+
+      {/* Fenêtre modale d'infos */}
+      {showInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+          <div className="bg-gray-900 rounded-2xl shadow-2xl p-8 border-2 border-cyan-400 max-w-xs w-full text-center relative">
+            <button
+              onClick={closeInfo}
+              className="absolute top-2 right-4 text-cyan-400 text-2xl font-bold hover:text-cyan-200"
+              aria-label="Fermer"
+            >
+              ×
+            </button>
+            <div className="text-lg font-bold text-cyan-400 mb-4">À propos du jeu</div>
+            <div className="mb-2">
+              <a href="https://github.com/rajamohamed/tetris-game/branches" target="_blank" rel="noopener noreferrer" className="underline text-cyan-300 hover:text-cyan-100 break-all">
+                github.com/rajamohamed/tetris-game/branches
+              </a>
+            </div>
+            <div className="mb-2 text-sm text-white">Langages : <span className="text-cyan-300">TypeScript</span>, <span className="text-cyan-300">React</span>, <span className="text-cyan-300">CSS</span></div>
+            <button
+              onClick={closeInfo}
+              className="mt-4 px-6 py-2 bg-cyan-500 hover:bg-cyan-600 text-white font-bold rounded-lg transition-all duration-200"
+            >
+              Fermer
+            </button>
+          </div>
         </div>
       )}
     </div>
