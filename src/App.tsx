@@ -8,6 +8,7 @@ const BLOCK = 30;
 const START_SPEED = 500;
 const PREVIEW_X = COLS * BLOCK + 20;
 const HOLD_X = -120;
+const VERSION = 'v1.0.0'; // À incrémenter à chaque nouveau push
 
 // Color palette (O, I, T, S, Z, L, J)
 const COLORS = [
@@ -835,9 +836,10 @@ export default function App() {
         </div>
       )}
 
-      {/* Copyright + Info */}
+      {/* Copyright + Info + Version */}
       <div className="fixed bottom-2 left-0 w-full text-center text-xs text-cyan-400 opacity-80 z-50 flex items-center justify-center gap-2">
         <span>© Raja Mohamed 2025</span>
+        <span className="mx-1">{VERSION}</span>
         <button
           aria-label="Infos"
           onClick={openInfo}
